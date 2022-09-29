@@ -16,7 +16,7 @@ docker build -t dotcoin .
 To run your code in debug mode (the server will automatically reload when the source files change)
 
 ```
-docker run --rm -p 5000:5000 -v $(pwd)/src:/shared dotcoin flask --app dotcoin.py --debug run
+docker run --rm -p 5000:5000 -v $(pwd)/src:/shared dotcoin flask --app dotcoin.py --debug run --host=0.0.0.0
 ```
 
 Type `ctrl-c` to stop the server. 
