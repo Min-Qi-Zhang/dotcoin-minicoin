@@ -36,7 +36,10 @@ def generate_next_block(block_data):
     next_index = prev_block.index + 1
     next_timestamp = int(time.mktime(datetime.now().timetuple()))
     next_hash = calculate_hash(next_index, prev_block.hash, next_timestamp, block_data)
-    return Block(next_index, next_hash, prev_block.hash, next_timestamp, block_data)
+    next_block = Block(next_index, next_hash, prev_block.hash, next_timestamp, block_data)
+    blockchain.append(next_block)
+    # TODO broadcast the block. If the block already in blockchain, don't broadcast
+    return next_block
 
 def is_valid_new_block(new_block, prev_block):
     ''' Things to check:
@@ -86,6 +89,10 @@ def replace_chain(new_blocks):
     else:
         print("Invalid blockchain received.")
 
+def hash_match_difficulty(hash, difficulty):
+    binary_hash = bin(int(hash, 16)).zfill(8)
+    return "0" * difficulty == binary_hash[:difficulty]
+
 app = Flask(__name__)
 app.debug = True
 
@@ -100,7 +107,20 @@ def index():
 def get_blocks():
     return json.dumps([block.toJson() for block in blockchain])
 
-@app.post("/mine_block")
+@app.post("/mineBlock")
 def mine_block():
     new_block = generate_next_block(request.args.get('data'))
     return new_block.toJson()
+
+
+# p2p: when a peer wants join, add it to the list, then send it the blockchain
+@app.get("/peers")
+def get_peers():
+    # TODO
+    return
+
+@app.post("/add_peer")
+def add_peer():
+    # TODO
+    return
+
