@@ -4,6 +4,8 @@ import time
 from datetime import datetime
 import json
 
+import transaction
+
 genesis_block = None
 blockchain = []
 BLOCK_GENERATION_INTERVAL = 10
