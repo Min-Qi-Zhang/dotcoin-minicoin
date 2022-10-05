@@ -4,7 +4,7 @@ import time
 from datetime import datetime
 import json
 
-import transaction
+from wallet import init_wallet
 
 genesis_block = None
 blockchain = []
@@ -46,15 +46,18 @@ def get_latest_block():
 def get_current_time():
     return int(time.mktime(datetime.now().timetuple()))
 
-def generate_next_block(block_data):
+def generate_raw_next_block(block_data):
     prev_block = get_latest_block()
     next_index = prev_block.index + 1
     next_timestamp = get_current_time()
-    next_hash = calculate_hash(next_index, prev_block.hash, next_timestamp, block_data)
-    next_block = Block(next_index, next_hash, prev_block.hash, next_timestamp, block_data)
+    next_difficulty = get_difficulty()
+    next_block = find_block(next_index, prev_block.hash, next_timestamp, block_data, next_difficulty)
     blockchain.append(next_block) # TODO verify the block before adding to the chain
     # TODO broadcast the block. If the block already in blockchain, don't broadcast
     return next_block
+
+# def generate_next_block():
+
 
 def is_valid_new_block(new_block, prev_block):
     ''' Things to check:
@@ -167,8 +170,9 @@ def get_blocks():
 
 @app.post("/mineBlock")
 def mine_block():
-    new_block = generate_next_block(request.args.get('data'))
-    return new_block.toJson()
+    pass
+    # new_block = generate_next_block(request.args.get('data'))
+    # return new_block.toJson()
 
 
 # p2p: when a peer wants join, add it to the list, then send it the blockchain

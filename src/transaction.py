@@ -44,6 +44,9 @@ class UTXO:
     def amount(self):
         return self._amount
 
+def get_UTXOs():
+    return unspent_tx_outs
+
 def get_transaction_id(transaction):
     tx_in_content = ''
     for tx_in in transaction.tx_ins:
@@ -56,12 +59,18 @@ def get_transaction_id(transaction):
     string = tx_in_content + tx_out_content
     return hashlib.sha256(string.encode('utf-8')).hexdigest()
     
-def sign_tx_in(transaction, tx_in_index, private_key, unspent_tx_outs):
-    # tx_in = transaction.tx_ins[tx_in_index]
+def sign_tx_in(transaction, tx_in_index, private_key, public_key, a_unspent_tx_outs):
+    tx_in = transaction.tx_ins[tx_in_index]
+
+    referenced_utxo = find_in_UTXOs(tx_in, a_unspent_tx_outs)
+    if (referenced_utxo == None):
+        raise Exception("Could not find reference tx_out")
+
+    referenced_address = referenced_utxo.address
+    if (public_key != referenced_address):
+        raise Exception("Key does not match the address that is referenced in tx_in")
+
     data_to_sign = transaction.id
-    # referenced_unspent_tx_out = find_unspent_tx_out(tx_in.tx_out_id, tx_in.tx_out_index, unspent_tx_outs)
-    # referenced_address = referenced_unspent_tx_out.address
-    
     # https://pycryptodome.readthedocs.io/en/latest/src/signature/dsa.html
     h = SHA256.new(data_to_sign.encode('utf-8'))
     signer = DSS.new(private_key, 'fips-186-3')
@@ -95,7 +104,7 @@ def find_in_UTXOs(target, utxos):
 def resulting_unspent_tx_outs(new_transactions):
     new_UTXOs = new_unspent_tx_outs(new_transactions)
     consumed = consumed_tx_outs(new_transactions)
-    filtered_UTXOs = filter(lambda utxo: find_in_UTXOs(utxo, consumed) == None, unspent_tx_outs)
+    filtered_UTXOs = filter(lambda utxo: find_in_UTXOs(utxo, consumed) == None, get_UTXOs())
     return filtered_UTXOs + new_UTXOs
 
 def is_valid_transaction_structure(transaction):
@@ -128,7 +137,7 @@ def is_valid_tx_id(transaction):
     return get_transaction_id(transaction) == transaction.id
 
 def is_valid_tx_ins(tx_in, transaction):
-    referenced_utxo = find_in_UTXOs(tx_in, unspent_tx_outs)
+    referenced_utxo = find_in_UTXOs(tx_in, get_UTXOs())
     if (referenced_utxo == None):
         print("Referenced utxo not found")
         return ''
@@ -150,7 +159,7 @@ def is_valid_tx_out_values(transaction):
     total_out = 0
 
     for tx_in in transaction.tx_ins:
-        total_in += find_in_UTXOs(tx_in, unspent_tx_outs).amount
+        total_in += find_in_UTXOs(tx_in, get_UTXOs()).amount
 
     for tx_out in transaction.tx_outs:
         total_out += tx_out.amount
