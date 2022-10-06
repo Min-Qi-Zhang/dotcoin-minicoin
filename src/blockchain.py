@@ -4,8 +4,11 @@ import time
 from datetime import datetime
 from typing import List
 
+from transaction import Transaction, process_transactions, UTXO
+
 genesis_block = None
 blockchain = []
+unspent_tx_outs = []
 
 # in seconds
 BLOCK_GENERATION_INTERVAL = 10
@@ -14,7 +17,7 @@ BLOCK_GENERATION_INTERVAL = 10
 DIFFICULTY_ADJUSTMENT_INTERVAL = 10
 
 class Block:
-    def __init__(self, index: int, hash: str, prev_hash: str, timestamp: int, data: str, difficulty: int, nonce: int):
+    def __init__(self, index: int, hash: str, prev_hash: str, timestamp: int, data: List[Transaction], difficulty: int, nonce: int):
         self.index = index
         self.hash = hash
         self.prev_hash = prev_hash
@@ -32,7 +35,7 @@ class Block:
     def calculate_hash_for_block(self):
         return calculate_hash(self.index, self.prev_hash, self.timestamp, self.data, self.difficulty, self.nonce)
 
-genesis_block = Block(0, '816534932c2b7154836da6afc367695e6337db8a921823784c14378abed4f7d7', None, 1664476570, 'This is a genesis block!', 0, 0)
+genesis_block = Block(0, '816534932c2b7154836da6afc367695e6337db8a921823784c14378abed4f7d7', None, 1664476570, [], 0, 0)
 blockchain.append(genesis_block)
 
 def get_latest_block() -> Block:
@@ -44,14 +47,17 @@ def get_blockchain() -> List[Block]:
 def get_genesis_block() -> Block:
     return genesis_block
 
+def get_UTXOs() -> List[UTXO]:
+    return unspent_tx_outs
+
 def get_current_time() -> int:
     return int(time.mktime(datetime.now().timetuple()))
 
-def calculate_hash(index: int, prev_hash: str, timestamp: int, data: str, difficulty: int, nonce: int) -> str:
+def calculate_hash(index: int, prev_hash: str, timestamp: int, data: List[Transaction], difficulty: int, nonce: int) -> str:
     '''
         Compute hash over all data of block
     '''
-    string = str(index) + prev_hash + str(timestamp) + data + str(difficulty) + str(nonce)
+    string = str(index) + prev_hash + str(timestamp) + str(data) + str(difficulty) + str(nonce)
     return hashlib.sha256(string.encode('utf-8')).hexdigest()
 
 def calculate_cumulative_difficulty(blocks: List[Block]) -> int:
@@ -86,7 +92,7 @@ def get_adjusted_difficulty(latest_block: Block) -> int:
     else:
         return prev_adjustment_block.difficulty
 
-def generate_next_block(block_data: str) -> Block:
+def generate_next_block(block_data: List[Transaction]) -> Block:
     prev_block = get_latest_block()
     next_index = prev_block.index + 1
     next_timestamp = get_current_time()
@@ -137,7 +143,7 @@ def is_valid_block_structure(block: Block) -> bool:
         and type(block.hash) is str \
         and type(block.prev_hash) is str \
         and type(block.timestamp) is int \
-        and type(block.data) is str \
+        and type(block.data) is list \
         and type(block.difficulty) is int \
         and type(block.nonce) is int
 
@@ -172,7 +178,7 @@ def replace_chain(new_blocks: List[Block]) -> None:
     else:
         print("Invalid blockchain received.")
 
-def find_block(index: int, prev_hash: str, timestamp: int, data: str, difficulty: int) -> Block:
+def find_block(index: int, prev_hash: str, timestamp: int, data: List[Transaction], difficulty: int) -> Block:
     '''
         Keep increasing nonce until we get a hash that matches difficulty,
         return a Block once a valid hash is found
@@ -190,8 +196,11 @@ def add_block_to_chain(block: Block) -> bool:
         Add block to blockchain, return True if success, return False otherwise
     '''
     if (is_valid_new_block(block, get_latest_block())):
-        blockchain.append(block)
-        return True
+        result = process_transactions(block.data, block.index, get_UTXOs())
+        if (result != None): 
+            blockchain.append(block)
+            unspent_tx_outs = result
+            return True
     return False
 
 def broadcast_latest() -> None:
