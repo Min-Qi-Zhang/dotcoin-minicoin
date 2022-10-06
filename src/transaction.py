@@ -266,3 +266,14 @@ def process_transactions(transactions: List[Transaction], index: int, a_unspent_
     if (not is_valid_block_transactions(transactions, index)):
         return None
     return resulting_unspent_tx_outs(transactions, a_unspent_tx_outs)
+
+def create_coinbase_tx(address: str, block_index: int) -> Transaction:
+    tx = Transaction()
+
+    tx_in = TxIn()
+    tx_in.tx_out_index = block_index
+    tx.tx_ins = [tx_in]
+
+    tx.tx_outs = [TxOut(address, COINBASE_AMOUNT)]
+    tx.id = get_transaction_id(tx)
+    return tx

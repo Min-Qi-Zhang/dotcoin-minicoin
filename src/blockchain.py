@@ -4,7 +4,8 @@ import time
 from datetime import datetime
 from typing import List
 
-from transaction import Transaction, process_transactions, UTXO
+from transaction import Transaction, create_coinbase_tx, process_transactions, UTXO
+from wallet import create_transaction, get_balance, get_public_from_wallet
 
 genesis_block = None
 blockchain = []
@@ -53,6 +54,9 @@ def get_UTXOs() -> List[UTXO]:
 def get_current_time() -> int:
     return int(time.mktime(datetime.now().timetuple()))
 
+def get_account_balance() -> float:
+    return get_balance(get_public_from_wallet(), get_UTXOs())
+
 def calculate_hash(index: int, prev_hash: str, timestamp: int, data: List[Transaction], difficulty: int, nonce: int) -> str:
     '''
         Compute hash over all data of block
@@ -92,7 +96,7 @@ def get_adjusted_difficulty(latest_block: Block) -> int:
     else:
         return prev_adjustment_block.difficulty
 
-def generate_next_block(block_data: List[Transaction]) -> Block:
+def generate_next_raw_block(block_data: List[Transaction]) -> Block:
     prev_block = get_latest_block()
     next_index = prev_block.index + 1
     next_timestamp = get_current_time()
@@ -102,6 +106,20 @@ def generate_next_block(block_data: List[Transaction]) -> Block:
         broadcast_latest();
         return next_block
     return None
+
+def generate_next_block() -> Block:
+    coinbase_tx = create_coinbase_tx(get_public_from_wallet(), len(get_blockchain()))
+    return generate_next_raw_block([coinbase_tx])
+
+def generate_block_with_transaction(receiver_address: str, amount: float) -> Block:
+    # TODO: Check receiver_address
+
+    if (not (type(amount) is float or type(amount) is int)):
+        return None
+
+    coinbase_tx = create_coinbase_tx(get_public_from_wallet(), len(get_blockchain()))
+    tx = create_transaction(receiver_address, amount, get_UTXOs())
+    return generate_next_block([coinbase_tx, tx])
 
 def is_valid_timestamp(new_block: Block, prev_block: Block) -> bool:
     ''' Timestamp is valid if:
