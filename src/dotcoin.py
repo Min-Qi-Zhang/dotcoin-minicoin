@@ -35,7 +35,7 @@ def mine_block():
         Mine a block without data, the generated block only contains a coinbase transaction
     '''
     new_block = generate_next_block()
-    if (new_block != None):
+    if (new_block):
         return new_block.toJson()
     return Response("{'message': 'Failed to mine a block'}", status=400)
 
@@ -45,11 +45,11 @@ def balance():
 
 @app.post("/mineTransaction")
 def mine_transaction():
-    receiver_address = request().get_json().get('address')
-    amount = request().get_json().get('amount')
-    result = generate_block_with_transaction(receiver_address, amount)
-    if (result != None):
-        return Response(str(result))
+    receiver_address = request.get_json().get('address')
+    amount = request.get_json().get('amount')
+    new_block = generate_block_with_transaction(receiver_address, amount)
+    if (new_block):
+        return new_block.toJson()
     return Response("{'message': 'Failed to mine transaction'}", status=400)
 
 # p2p: when a peer wants join, add it to the list, then send it the blockchain

@@ -24,7 +24,7 @@ def get_private_from_wallet() -> ECC.EccKey:
 def get_public_from_wallet() -> str:
     private_key = get_private_from_wallet()
     public_key = ECC.EccKey.public_key(private_key).export_key(format='raw')
-    return str(public_key)
+    return bytes.hex(public_key)
 
 def get_balance(address: str, unspent_tx_outs: List[UTXO]) -> float:
     filtered_utxos = filter(lambda x: (x.address == address), unspent_tx_outs)
@@ -79,14 +79,14 @@ def create_tx_outs(receiver_address: str, my_address: str, amount: float, left_o
 ##### End - Helper functions for create_transaction() #####
 
 def create_transaction(receiver_address: str, amount: float, a_unspent_tx_outs: List[UTXO]) -> Transaction:
+    my_address = get_public_from_wallet()
+    my_utxos = list(filter(lambda x: (x.address == my_address), a_unspent_tx_outs))
+    private_key = get_private_from_wallet()
+
     (included_utxos, left_over_amount) = find_tx_outs_for_amount(amount, my_utxos)
     if (included_utxos == []):
-        print("Not enough UTXOs to spent")
+        print("Not enough UTXOs to spent", flush=True)
         return None
-
-    my_address = get_public_from_wallet()
-    my_utxos = a_unspent_tx_outs.filter(lambda x: (x.address == my_address), a_unspent_tx_outs)
-    private_key = get_private_from_wallet()
 
     transaction = Transaction()
     transaction.tx_ins = create_unsigned_tx_ins(amount, my_utxos)

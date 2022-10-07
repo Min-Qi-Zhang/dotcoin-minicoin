@@ -119,7 +119,7 @@ def generate_block_with_transaction(receiver_address: str, amount: float) -> Blo
 
     coinbase_tx = create_coinbase_tx(get_public_from_wallet(), len(get_blockchain()))
     tx = create_transaction(receiver_address, amount, get_UTXOs())
-    return generate_next_block([coinbase_tx, tx])
+    return generate_next_raw_block([coinbase_tx, tx])
 
 def is_valid_timestamp(new_block: Block, prev_block: Block) -> bool:
     ''' Timestamp is valid if:
@@ -137,19 +137,19 @@ def is_valid_new_block(new_block: Block, prev_block: Block) -> bool:
         5. timestamp is valid
     '''
     if (not is_valid_block_structure(new_block)):
-        print("Invalid block structure")
+        print("Invalid block structure", flush=True)
         return False
     elif (not is_valid_timestamp(new_block, prev_block)):
-        print("Invalid timestamp!")
+        print("Invalid timestamp!", flush=True)
         return False
     elif (prev_block.index + 1 != new_block.index):
-        print("Invalid index!")
+        print("Invalid index!", flush=True)
         return False
     elif (new_block.prev_hash != prev_block.hash):
-        print("prev_hash doesn't match!")
+        print("prev_hash doesn't match!", flush=True)
         return False
     elif (new_block.calculate_hash_for_block() != new_block.hash):
-        print("Invalid hash!")
+        print("Invalid hash!", flush=True)
         return False
     return True
 
@@ -190,11 +190,11 @@ def replace_chain(new_blocks: List[Block]) -> None:
     '''
     if (is_valid_chain(new_blocks) and \
         calculate_cumulative_difficulty(new_blocks) > calculate_cumulative_difficulty(blockchain)):
-        print("Valid blockchain received.")
+        print("Valid blockchain received.", flush=True)
         blockchain = new_blocks
         broadcast_latest()
     else:
-        print("Invalid blockchain received.")
+        print("Invalid blockchain received.", flush=True)
 
 def find_block(index: int, prev_hash: str, timestamp: int, data: List[Transaction], difficulty: int) -> Block:
     '''
@@ -217,7 +217,8 @@ def add_block_to_chain(block: Block) -> bool:
         result = process_transactions(block.data, block.index, get_UTXOs())
         if (result != None): 
             blockchain.append(block)
-            unspent_tx_outs = result
+            global unspent_tx_outs
+            unspent_tx_outs = result[:]
             return True
     return False
 

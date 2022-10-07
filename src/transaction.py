@@ -112,13 +112,13 @@ def consumed_tx_outs(new_transactions: List[Transaction]) -> List[UTXO]:
         tx_ins += t.tx_ins
     return [UTXO(tx_in.tx_out_id, tx_in.tx_out_index, '', 0) for tx_in in tx_ins]
 
-def find_in_UTXOs(target: TxIn, utxos: List[UTXO]) -> UTXO:
+def find_in_UTXOs(target, utxos: List[UTXO]) -> UTXO:
     '''
         Find target in utxos, return it if exists, otherwise return None
     '''
     for u in utxos:
         if u.tx_out_id == target.tx_out_id \
-            and u.tx_out.index == target.tx_out.index:
+            and u.tx_out_index == target.tx_out_index:
             return u
     return None
 
@@ -129,32 +129,32 @@ def resulting_unspent_tx_outs(new_transactions: List[Transaction], a_unspent_tx_
     new_UTXOs = new_unspent_tx_outs(new_transactions)
     consumed_UTXOs = consumed_tx_outs(new_transactions)
     filtered_UTXOs = filter(lambda utxo: find_in_UTXOs(utxo, consumed_UTXOs) == None, a_unspent_tx_outs)
-    return filtered_UTXOs + new_UTXOs
+    return list(filtered_UTXOs) + new_UTXOs
 
 ##### Start - Helper functions for is_valid_transaction() #####
 
 def is_valid_tx_structure(transaction: Transaction) -> bool:
     if (not type(transaction.id) is str):
-        print("Invalid type of transaction id")
+        print("Invalid type of transaction id", flush=True)
         return False
 
     for tx_in in transaction.tx_ins:
         if (not type(tx_in.tx_out_id) is str):
-            print("Invalid type of tx_in.tx_out_id")
+            print("Invalid type of tx_in.tx_out_id", flush=True)
             return False
         elif (not type(tx_in.tx_out_index) is int):
-            print("Invalid type of tx_in.tx_out_index")
+            print("Invalid type of tx_in.tx_out_index", flush=True)
             return False
         elif (not type(tx_in.signature) is str):
-            print("Invalid type of signature")
+            print("Invalid type of signature", flush=True)
             return False
     
     for tx_out in transaction.tx_outs:
         if (not type(tx_out.address) is str):
-            print("Invalid type of tx_out.address")
+            print("Invalid type of tx_out.address", flush=True)
             return False
         elif (not (type(tx_out.amount) is float or type(tx_out.amount) is int)):
-            print("Invalid type of tx_out.amount")
+            print("Invalid type of tx_out.amount", flush=True)
             return False
 
     return True
@@ -168,12 +168,12 @@ def is_valid_tx_ins(tx_in: TxIn, transaction: Transaction, a_unspent_tx_outs: Li
     '''
     referenced_utxo = find_in_UTXOs(tx_in, a_unspent_tx_outs)
     if (referenced_utxo == None):
-        print("Referenced utxo not found")
+        print("Referenced utxo not found", flush=True)
         return False
     public_key = referenced_utxo.address
 
     # https://pycryptodome.readthedocs.io/en/latest/src/signature/dsa.html
-    key = ECC.import_key(public_key) # convert from str to ECC.EccKey object
+    key = ECC.import_key(bytes.fromhex(public_key), curve_name='P-256') # convert from str to ECC.EccKey object
     h = SHA256.new(transaction.id.encode('utf-8'))
     verifier = DSS.new(key, 'fips-186-3')
     try:
@@ -220,28 +220,29 @@ def is_valid_coinbase_tx(transaction: Transaction, block_index: int) -> bool:
         6. transaction structure must be valid
     '''
     if (not is_valid_tx_structure(transaction)):
-        print("Invalid coinbase tx structure")
+        print("Invalid coinbase tx structure", flush=True)
         return False
     elif (get_transaction_id(transaction) != transaction.id):
-        print("Invalid coinbase tx id")
+        print("Invalid coinbase tx id", flush=True)
         return False
     elif (len(transaction.tx_ins) != 1):
-        print("One tx_in must be specified in coinbase transaction")
+        print("One tx_in must be specified in coinbase transaction", flush=True)
         return False
     elif (transaction.tx_ins[0].tx_out_index != block_index):
-        print("Index must be same as block index")
+        print("Index must be same as block index", flush=True)
         return False
     elif (len(transaction.tx_outs) != 1):
-        print("Invalid number of tx_outs in coinbase transaction")
+        print("Invalid number of tx_outs in coinbase transaction", flush=True)
         return False
     elif (transaction.tx_outs[0].amount != COINBASE_AMOUNT):
-        print("Invalid coinbase amount")
+        print("Invalid coinbase amount", flush=True)
         return False
     return True
 
-def is_valid_block_transactions(transactions: List[Transaction], block_index: int) -> bool:
+def is_valid_block_transactions(transactions: List[Transaction], block_index: int, a_unspent_tx_outs: List[UTXO]) -> bool:
     # Check coinbase transaction
     if (not is_valid_coinbase_tx(transactions[0], block_index)):
+        print("The first transaction is not coinbase transaction", flush=True)
         return False
 
     # Check for duplicate TxIns
@@ -251,19 +252,22 @@ def is_valid_block_transactions(transactions: List[Transaction], block_index: in
             if tx_in not in all_tx_ins:
                 all_tx_ins.append(tx_in)
             else:
+                print("Duplicate found", flush=True)
                 return False
 
     # Check the rest of transactions
     for i in range(1, len(transactions)):
         tx = transactions[i]
-        if (not is_valid_transaction(tx)):
+        if (not is_valid_transaction(tx, a_unspent_tx_outs)):
+            print("Invalid transaction", flush=True)
             return False
+    return True
 
 def process_transactions(transactions: List[Transaction], index: int, a_unspent_tx_outs: List[UTXO]) -> List[UTXO]:
     '''
         Validate each transaction and return UTXOs if the check is passed
     '''
-    if (not is_valid_block_transactions(transactions, index)):
+    if (not is_valid_block_transactions(transactions, index, a_unspent_tx_outs)):
         return None
     return resulting_unspent_tx_outs(transactions, a_unspent_tx_outs)
 
@@ -272,6 +276,8 @@ def create_coinbase_tx(address: str, block_index: int) -> Transaction:
 
     tx_in = TxIn()
     tx_in.tx_out_index = block_index
+    tx_in.tx_out_id = ''
+    tx_in.signature = ''
     tx.tx_ins = [tx_in]
 
     tx.tx_outs = [TxOut(address, COINBASE_AMOUNT)]
