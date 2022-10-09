@@ -1,8 +1,12 @@
 import hashlib
 import json
-from Crypto.Signature import DSS
-from Crypto.PublicKey import ECC
-from Crypto.Hash import SHA256
+# from Crypto.Signature import DSS
+# from Crypto.PublicKey import ECC
+# from Crypto.Hash import SHA256
+from nacl.signing import SigningKey
+from nacl.signing import VerifyKey
+from nacl.encoding import RawEncoder
+from nacl.exceptions import BadSignatureError
 from typing import List, Union
 
 COINBASE_AMOUNT = 50
@@ -78,7 +82,7 @@ def get_transaction_id(transaction: Transaction) -> str:
     string = tx_in_content + tx_out_content
     return hashlib.sha256(string.encode('utf-8')).hexdigest()
     
-def sign_tx_in(transaction: Transaction, tx_in_index: int, private_key: ECC.EccKey, public_key: str, a_unspent_tx_outs: List[UTXO]) -> str:
+def sign_tx_in(transaction: Transaction, tx_in_index: int, private_key: SigningKey, public_key: str, a_unspent_tx_outs: List[UTXO]) -> str:
     '''
         First, check if tx_in is referenced to an existing UTXO (raise Exception if DNE),
         then, check address of UTXO matches public_key (raise Exception if doesn't match),
@@ -96,10 +100,12 @@ def sign_tx_in(transaction: Transaction, tx_in_index: int, private_key: ECC.EccK
 
     data_to_sign = transaction.id
     # https://pycryptodome.readthedocs.io/en/latest/src/signature/dsa.html
-    h = SHA256.new(data_to_sign.encode('utf-8'))
-    signer = DSS.new(private_key, 'fips-186-3')
-    signature = signer.sign(h).hex()
-    return signature
+    # h = SHA256.new(data_to_sign.encode('utf-8'))
+    # signer = DSS.new(private_key, 'fips-186-3')
+    # signature = signer.sign(h).hex()
+    signed_raw = private_key.sign(data_to_sign.encode('utf-8'), encoder=RawEncoder)
+    signature_bytes = RawEncoder.decode(signed_raw.signature)
+    return bytes.hex(signature_bytes)
 
 def new_unspent_tx_outs(new_transactions: List[Transaction]) -> List[UTXO]:
     '''
@@ -184,14 +190,16 @@ def is_valid_tx_ins(tx_in: TxIn, transaction: Transaction, a_unspent_tx_outs: Li
     public_key = referenced_utxo.address
 
     # https://pycryptodome.readthedocs.io/en/latest/src/signature/dsa.html
-    key = ECC.import_key(bytes.fromhex(public_key), curve_name='P-256') # convert from str to ECC.EccKey object
-    h = SHA256.new(transaction.id.encode('utf-8'))
-    verifier = DSS.new(key, 'fips-186-3')
+    # key = ECC.import_key(bytes.fromhex(public_key), curve_name='P-256') # convert from str to ECC.EccKey object
+    # h = SHA256.new(transaction.id.encode('utf-8'))
+    # verifier = DSS.new(key, 'fips-186-3')
+    verify_key = VerifyKey(bytes.fromhex(public_key), encoder=RawEncoder)
     try:
-        verifier.verify(h, bytes.fromhex(tx_in.signature))
+    #     verifier.verify(h, bytes.fromhex(tx_in.signature))
+        verify_key.verify(transaction.id.encode('utf-8'), bytes.fromhex(tx_in.signature), encoder=RawEncoder)
         print ("The message is authentic.")
         return True
-    except ValueError:
+    except BadSignatureError:
         print ("The message is not authentic.")
         return False
 

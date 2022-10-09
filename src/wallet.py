@@ -1,10 +1,13 @@
-from Crypto.PublicKey import ECC
+# from Crypto.PublicKey import ECC
+from nacl.signing import SigningKey
+from nacl.encoding import RawEncoder
 from os.path import exists
 from typing import List, Tuple
+import pickle
 
 from transaction import UTXO, TxIn, TxOut, Transaction, find_in_UTXOs, get_transaction_id, sign_tx_in
 
-private_key_location = './private_key.pem'
+private_key_location = './private_key'
 
 def init_wallet() -> None:
     '''
@@ -12,18 +15,24 @@ def init_wallet() -> None:
     '''
     if (exists(private_key_location)):
         return
-    private_key = ECC.generate(curve='P-256')
-    f = open(private_key_location, 'w')
-    f.write(private_key.export_key(format='PEM'))
+    # private_key = ECC.generate(curve='P-256')
+    private_key = SigningKey.generate()
+    f = open(private_key_location, 'wb')
+    # f.write(private_key.export_key(format='PEM'))
+    pickle.dump(private_key, f)
     f.close()
 
-def get_private_from_wallet() -> ECC.EccKey:
-    f = open(private_key_location, 'r')
-    return ECC.import_key(f.read())
+def get_private_from_wallet() -> SigningKey:
+    f = open(private_key_location, 'rb')
+    # return ECC.import_key(f.read())
+    private_key = pickle.load(f)
+    f.close()
+    return private_key
 
 def get_public_from_wallet() -> str:
     private_key = get_private_from_wallet()
-    public_key = ECC.EccKey.public_key(private_key).export_key(format='raw')
+    # public_key = ECC.EccKey.public_key(private_key).export_key(format='raw')
+    public_key = private_key.verify_key.encode(encoder=RawEncoder)
     return bytes.hex(public_key)
 
 def get_balance(address: str, unspent_tx_outs: List[UTXO]) -> float:

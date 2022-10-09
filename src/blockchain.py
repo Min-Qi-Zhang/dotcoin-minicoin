@@ -40,8 +40,8 @@ class Block:
 ### Create genesis transaction - start ###
 genesis_tx = Transaction()
 genesis_tx.tx_ins = [TxIn()]
-genesis_tx.tx_outs = [TxOut('04f3b1b03b989d950f2357d520ac16c04c1a89f9d3ae77aaed14d79ef05f745601422883b7d9f60cdc8ff8302edd04ba52c61db5aeac96f76bbfcec4f2039e9ab3', 50)]
-genesis_tx.id = 'f222c25e009a4632e9ce05028487633121f694c75b7781cb641bf5c89e16ec2e'
+genesis_tx.tx_outs = [TxOut('4e64c77bac3408cd916d0ce4fea383df2c56954e22e88d2859dca5e2e4187d49', 50)]
+genesis_tx.id = 'b4cd43dcf8ae6f51316d388ded308ff99ead8c2e1fc1e2e1247475e058b6b1d7'
 ### Create genesis transaction - end ###
 
 genesis_block = Block(0, '816534932c2b7154836da6afc367695e6337db8a921823784c14378abed4f7d7', None, 1664476570, [genesis_tx], 0, 0)
@@ -77,7 +77,7 @@ def calculate_hash(index: int, prev_hash: str, timestamp: int, data: List[Transa
     '''
         Compute hash over all data of block
     '''
-    string = str(index) + prev_hash + str(timestamp) + str(data) + str(difficulty) + str(nonce)
+    string = str(index) + str(prev_hash) + str(timestamp) + str(data) + str(difficulty) + str(nonce)
     return hashlib.sha256(string.encode('utf-8')).hexdigest()
 
 def calculate_cumulative_difficulty(blocks: List[Block]) -> int:
