@@ -73,6 +73,22 @@ def get_account_balance() -> float:
 def get_my_UTXOs() -> List[UTXO]:
     return get_utxos_by_address(get_public_from_wallet(), get_UTXOs())
 
+def get_block_info(hash: str) -> Union[Block, None]:
+    for block in get_blockchain():
+        if block.hash == hash:
+            return block
+    return None
+
+def get_transaction_by_id(id: str) -> Union[Transaction, None]:
+    all_txs = [tx for block in get_blockchain() for tx in block.data]
+    for tx in all_txs:
+        if tx.id == id:
+            return tx
+    return None
+
+def get_info_by_address(address: str) -> List[UTXO]:
+    return get_utxos_by_address(address, get_UTXOs())
+
 def calculate_hash(index: int, prev_hash: str, timestamp: int, data: List[Transaction], difficulty: int, nonce: int) -> str:
     '''
         Compute hash over all data of block

@@ -1,7 +1,7 @@
 from flask import Flask, request, Response
 import json
 
-from blockchain import generate_next_block, get_UTXOs, get_account_balance, get_blockchain, get_my_UTXOs, send_tx
+from blockchain import generate_next_block, get_UTXOs, get_account_balance, get_block_info, get_blockchain, get_info_by_address, get_my_UTXOs, get_transaction_by_id, send_tx
 from wallet import get_public_from_wallet
 
 app = Flask(__name__)
@@ -15,6 +15,16 @@ def index():
 def get_blocks():
     return json.dumps([block.toJson() for block in get_blockchain()])
 
+@app.get("/block/<string:hash>")
+def get_block(hash):
+    block = get_block_info(hash)
+    return block.toJson() if block else Response("{'message': 'Block does not exist'}", status=400)
+
+@app.get("/transaction/<string:id>")
+def get_transaction(id):
+    tx = get_transaction_by_id(id)
+    return tx.toJson() if tx else Response("{'message': 'Transaction does not exist'}", status=400)
+
 @app.get("/unspentTransactionOutputs")
 def unspent_transaction_outputs():
     return json.dumps([utxo.toJson() for utxo in get_UTXOs()])
@@ -26,6 +36,10 @@ def my_unspent_transaction_outputs():
 @app.get("/address")
 def get_address():
     return Response(str({'address': get_public_from_wallet()}))
+
+@app.get("/address/<string:address>")
+def get_address_info(address):
+    return json.dumps([utxo.toJson() for utxo in get_info_by_address(address)])
 
 @app.post("/mineBlock")
 def mine_block():
