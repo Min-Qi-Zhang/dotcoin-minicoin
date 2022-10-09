@@ -1,4 +1,4 @@
-from flask import Flask, request, Response
+from flask import Flask, request, Response, render_template
 import json
 
 from blockchain import generate_next_block, get_UTXOs, get_account_balance, get_block_info, get_blockchain, get_info_by_address, get_my_UTXOs, get_transaction_by_id, send_tx
@@ -9,7 +9,7 @@ app.debug = True
 
 @app.route("/")
 def index():
-    return "Hello World!"
+    return render_template("index.html")
 
 @app.get("/blocks")
 def get_blocks():
