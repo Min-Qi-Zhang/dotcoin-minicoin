@@ -20,3 +20,10 @@ docker run --rm -p 5000:5000 -v $(pwd)/flask-server:/shared dotcoin flask --app 
 ```
 
 Type `ctrl-c` to stop the server. 
+
+How to Run
+-----
+Build React app
+```
+npm run build
+```

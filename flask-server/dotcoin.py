@@ -9,7 +9,7 @@ app.debug = True
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", flask_token="Hello   world")
 
 @app.get("/blocks")
 def get_blocks():
