@@ -1,8 +1,9 @@
 import hashlib
+import json
 from Crypto.Signature import DSS
 from Crypto.PublicKey import ECC
 from Crypto.Hash import SHA256
-from typing import List
+from typing import List, Union
 
 COINBASE_AMOUNT = 50
 
@@ -17,9 +18,10 @@ class TxIn:
         tx_out_index: int
         signature: str
     '''
-    tx_out_id = ''
-    tx_out_index = -1
-    signature = ''
+    def __init__(self):
+        self.tx_out_id = ''
+        self.tx_out_index = 0
+        self.signature = ''
 
 class Transaction:
     '''
@@ -27,9 +29,13 @@ class Transaction:
         tx_ins: List[TxIn]
         tx_outs: List[TxOut]
     '''
-    id = ''
-    tx_ins = []
-    tx_outs = []
+    def __init__(self): 
+        self.id = ''
+        self.tx_ins = []
+        self.tx_outs = []
+
+    def toJson(self):
+        return json.dumps(self, default=lambda o: o.__dict__)
 
 class UTXO:
     def __init__(self, tx_out_id: str, tx_out_index: int, address: str, amount: float):
@@ -53,6 +59,9 @@ class UTXO:
     @property
     def amount(self):
         return self._amount
+
+    def toJson(self):
+        return json.dumps(self, default=lambda o: {'tx_out_id': self.tx_out_id, 'tx_out_index': self.tx_out_index, 'address': self.address, 'amount': self.amount})
 
 def get_transaction_id(transaction: Transaction) -> str:
     '''
@@ -112,11 +121,13 @@ def consumed_tx_outs(new_transactions: List[Transaction]) -> List[UTXO]:
         tx_ins += t.tx_ins
     return [UTXO(tx_in.tx_out_id, tx_in.tx_out_index, '', 0) for tx_in in tx_ins]
 
-def find_in_UTXOs(target, utxos: List[UTXO]) -> UTXO:
+def find_in_UTXOs(target: Union[TxIn, UTXO], lst: Union[List[TxIn], List[UTXO]]) -> UTXO:
     '''
-        Find target in utxos, return it if exists, otherwise return None
+        Find target in lst, return it if exists, otherwise return None
+        :param TxIn/UTXO target: tx_in or an unspent tx_out
+        :param List[TxIn]/List[UTXO] lst: a list of tx_in or a list of UTXO
     '''
-    for u in utxos:
+    for u in lst:
         if u.tx_out_id == target.tx_out_id \
             and u.tx_out_index == target.tx_out_index:
             return u
@@ -263,9 +274,10 @@ def is_valid_block_transactions(transactions: List[Transaction], block_index: in
             return False
     return True
 
-def process_transactions(transactions: List[Transaction], index: int, a_unspent_tx_outs: List[UTXO]) -> List[UTXO]:
+def process_transactions(transactions: List[Transaction], index: int, a_unspent_tx_outs: List[UTXO]) -> Union[List[UTXO], None]:
     '''
-        Validate each transaction and return UTXOs if the check is passed
+        Validate each transaction and return UTXOs if the check is passed.
+        Return None if transaction validation failed, otherwise return resulted UTXOs
     '''
     if (not is_valid_block_transactions(transactions, index, a_unspent_tx_outs)):
         return None

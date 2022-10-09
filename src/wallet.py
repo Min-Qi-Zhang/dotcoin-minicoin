@@ -2,7 +2,7 @@ from Crypto.PublicKey import ECC
 from os.path import exists
 from typing import List, Tuple
 
-from transaction import UTXO, TxIn, TxOut, Transaction, get_transaction_id, sign_tx_in
+from transaction import UTXO, TxIn, TxOut, Transaction, find_in_UTXOs, get_transaction_id, sign_tx_in
 
 private_key_location = './private_key.pem'
 
@@ -27,8 +27,11 @@ def get_public_from_wallet() -> str:
     return bytes.hex(public_key)
 
 def get_balance(address: str, unspent_tx_outs: List[UTXO]) -> float:
-    filtered_utxos = filter(lambda x: (x.address == address), unspent_tx_outs)
+    filtered_utxos = get_utxos_by_address(address, unspent_tx_outs)
     return sum([utxo.amount for utxo in filtered_utxos])
+
+def get_utxos_by_address(address: str, unspent_tx_outs: List[UTXO]) -> List[UTXO]:
+    return list(filter(lambda x: (x.address == address), unspent_tx_outs))
 
 ##### Start - Helper functions for create_transaction() #####
 
@@ -76,20 +79,29 @@ def create_tx_outs(receiver_address: str, my_address: str, amount: float, left_o
         left_over_tx = TxOut(my_address, left_over_amount)
         return [tx_out, left_over_tx]
 
+def filter_tx_pool_txs(a_unspent_tx_outs: List[UTXO], transaction_pool: List[Transaction]) -> List[UTXO]:
+    '''
+        Filter out the utxos that are already consumed in the transaction pool, return the resulted UTXOs
+    '''
+    tx_in_from_tx_pool = [tx_in for tx in transaction_pool for tx_in in tx.tx_ins]
+    resulted_utxos = filter(lambda utxo: find_in_UTXOs(utxo, tx_in_from_tx_pool) == None, a_unspent_tx_outs)
+    return list(resulted_utxos)
+
 ##### End - Helper functions for create_transaction() #####
 
-def create_transaction(receiver_address: str, amount: float, a_unspent_tx_outs: List[UTXO]) -> Transaction:
+def create_transaction(receiver_address: str, amount: float, a_unspent_tx_outs: List[UTXO], transaction_pool: List[Transaction]) -> Transaction:
     my_address = get_public_from_wallet()
-    my_utxos = list(filter(lambda x: (x.address == my_address), a_unspent_tx_outs))
+    my_all_utxos = get_utxos_by_address(get_public_from_wallet(), a_unspent_tx_outs)
+    my_unconsumed_utxos = filter_tx_pool_txs(my_all_utxos, transaction_pool)
     private_key = get_private_from_wallet()
 
-    (included_utxos, left_over_amount) = find_tx_outs_for_amount(amount, my_utxos)
+    (included_utxos, left_over_amount) = find_tx_outs_for_amount(amount, my_unconsumed_utxos)
     if (included_utxos == []):
         print("Not enough UTXOs to spent", flush=True)
         return None
 
     transaction = Transaction()
-    transaction.tx_ins = create_unsigned_tx_ins(amount, my_utxos)
+    transaction.tx_ins = create_unsigned_tx_ins(amount, my_unconsumed_utxos)
     transaction.tx_outs = create_tx_outs(receiver_address, my_address, amount, left_over_amount)
     transaction.id = get_transaction_id(transaction)
 

@@ -2,14 +2,15 @@ import json
 import hashlib
 import time
 from datetime import datetime
-from typing import List
+from typing import List, Union
 
-from transaction import Transaction, create_coinbase_tx, process_transactions, UTXO
-from wallet import create_transaction, get_balance, get_public_from_wallet
+from p2p import broadcast_latest, broadcast_transaction_pool
+from transaction import Transaction, TxIn, TxOut, create_coinbase_tx, process_transactions, UTXO
+from transaction_pool import add_to_transaction_pool, get_transaction_pool, update_transaction_pool
+from wallet import create_transaction, get_balance, get_public_from_wallet, get_utxos_by_address
 
 genesis_block = None
 blockchain = []
-unspent_tx_outs = []
 
 # in seconds
 BLOCK_GENERATION_INTERVAL = 10
@@ -36,8 +37,16 @@ class Block:
     def calculate_hash_for_block(self):
         return calculate_hash(self.index, self.prev_hash, self.timestamp, self.data, self.difficulty, self.nonce)
 
-genesis_block = Block(0, '816534932c2b7154836da6afc367695e6337db8a921823784c14378abed4f7d7', None, 1664476570, [], 0, 0)
+### Create genesis transaction - start ###
+genesis_tx = Transaction()
+genesis_tx.tx_ins = [TxIn()]
+genesis_tx.tx_outs = [TxOut('04f3b1b03b989d950f2357d520ac16c04c1a89f9d3ae77aaed14d79ef05f745601422883b7d9f60cdc8ff8302edd04ba52c61db5aeac96f76bbfcec4f2039e9ab3', 50)]
+genesis_tx.id = 'f222c25e009a4632e9ce05028487633121f694c75b7781cb641bf5c89e16ec2e'
+### Create genesis transaction - end ###
+
+genesis_block = Block(0, '816534932c2b7154836da6afc367695e6337db8a921823784c14378abed4f7d7', None, 1664476570, [genesis_tx], 0, 0)
 blockchain.append(genesis_block)
+unspent_tx_outs = process_transactions(blockchain[0].data, 0, [])
 
 def get_latest_block() -> Block:
     return blockchain[-1]
@@ -51,11 +60,18 @@ def get_genesis_block() -> Block:
 def get_UTXOs() -> List[UTXO]:
     return unspent_tx_outs
 
+def set_UTXOs(new_UTXOs: List[UTXO]) -> None:
+    global unspent_tx_outs
+    unspent_tx_outs = new_UTXOs[:]
+
 def get_current_time() -> int:
     return int(time.mktime(datetime.now().timetuple()))
 
 def get_account_balance() -> float:
     return get_balance(get_public_from_wallet(), get_UTXOs())
+
+def get_my_UTXOs() -> List[UTXO]:
+    return get_utxos_by_address(get_public_from_wallet(), get_UTXOs())
 
 def calculate_hash(index: int, prev_hash: str, timestamp: int, data: List[Transaction], difficulty: int, nonce: int) -> str:
     '''
@@ -109,7 +125,8 @@ def generate_next_raw_block(block_data: List[Transaction]) -> Block:
 
 def generate_next_block() -> Block:
     coinbase_tx = create_coinbase_tx(get_public_from_wallet(), len(get_blockchain()))
-    return generate_next_raw_block([coinbase_tx])
+    block_data = [coinbase_tx] + get_transaction_pool()
+    return generate_next_raw_block(block_data)
 
 def generate_block_with_transaction(receiver_address: str, amount: float) -> Block:
     # TODO: Check receiver_address
@@ -118,7 +135,7 @@ def generate_block_with_transaction(receiver_address: str, amount: float) -> Blo
         return None
 
     coinbase_tx = create_coinbase_tx(get_public_from_wallet(), len(get_blockchain()))
-    tx = create_transaction(receiver_address, amount, get_UTXOs())
+    tx = create_transaction(receiver_address, amount, get_UTXOs(), get_transaction_pool())
     return generate_next_raw_block([coinbase_tx, tx])
 
 def is_valid_timestamp(new_block: Block, prev_block: Block) -> bool:
@@ -165,17 +182,23 @@ def is_valid_block_structure(block: Block) -> bool:
         and type(block.difficulty) is int \
         and type(block.nonce) is int
 
-def is_valid_chain(blockchain_to_check: List[Block]) -> bool:
+def is_valid_chain(blockchain_to_check: List[Block]) -> Union[List[UTXO], None]:
     '''
         First, check first block is genesis block, 
         then validation the rest of blocks.
     '''
     if (blockchain_to_check[0] != get_genesis_block()):
-        return False
-    for i in range(1, len(blockchain_to_check)):
-        if(not is_valid_new_block(blockchain_to_check(i), blockchain_to_check(i - 1))):
-            return False
-    return True
+        return None
+
+    a_unspent_tx_outs = []
+    for i in range(len(blockchain_to_check)):
+        cur_block = blockchain_to_check[i]
+        if(i > 0 and not is_valid_new_block(cur_block, blockchain_to_check[i - 1])):
+            return None
+        a_unspent_tx_outs = process_transactions(cur_block.data, cur_block.index, a_unspent_tx_outs)
+        if (a_unspent_tx_outs == None):
+            return None
+    return a_unspent_tx_outs
 
 def hash_match_difficulty(hash: str, difficulty: int) -> bool:
     '''
@@ -188,10 +211,13 @@ def replace_chain(new_blocks: List[Block]) -> None:
     '''
         Replace the chain with highest cummulative difficulty
     '''
-    if (is_valid_chain(new_blocks) and \
+    a_unspent_tx_outs = is_valid_chain(new_blocks)
+    if (a_unspent_tx_outs != None and \
         calculate_cumulative_difficulty(new_blocks) > calculate_cumulative_difficulty(blockchain)):
         print("Valid blockchain received.", flush=True)
         blockchain = new_blocks
+        set_UTXOs(a_unspent_tx_outs)
+        update_transaction_pool(get_UTXOs())
         broadcast_latest()
     else:
         print("Invalid blockchain received.", flush=True)
@@ -217,11 +243,13 @@ def add_block_to_chain(block: Block) -> bool:
         result = process_transactions(block.data, block.index, get_UTXOs())
         if (result != None): 
             blockchain.append(block)
-            global unspent_tx_outs
-            unspent_tx_outs = result[:]
+            set_UTXOs(result)
+            update_transaction_pool(get_UTXOs())
             return True
     return False
 
-def broadcast_latest() -> None:
-    # TODO broadcast the block. If the block already in blockchain, don't broadcast
-    pass
+def send_tx(address: str, amount: float) -> Transaction:
+    tx = create_transaction(address, amount, get_UTXOs(), get_transaction_pool())
+    add_to_transaction_pool(tx, get_UTXOs())
+    broadcast_transaction_pool()
+    return tx
