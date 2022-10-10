@@ -1,12 +1,16 @@
 from flask import Flask, request, Response, render_template
 import json
+import os
 
 from blockchain import generate_next_block, get_UTXOs, get_account_balance, get_block_info, get_blockchain, get_info_by_address, get_my_UTXOs, get_transaction_by_id, send_tx, generate_key_pair
 from wallet import get_public_from_wallet
 from transaction_pool import get_transaction_pool
+from p2p import add_peer_to_list, join_network, get_peers_list
 
 app = Flask(__name__)
 app.debug = True
+
+port = 5000
 
 @app.route("/")
 def index():
@@ -85,11 +89,23 @@ def get_key_pair():
 # p2p: when a peer wants join, add it to the list, then send it the blockchain
 @app.get("/peers")
 def get_peers():
-    # TODO
-    return
+    return json.dumps(get_peers_list())
 
-@app.post("/add_peer")
+@app.post("/addPeer")
 def add_peer():
-    # TODO
-    return
+    '''Receive request from new node to join the network'''
+    my_url = request.get_json().get('url')
+    return {'url': add_peer_to_list(my_url)}
 
+@app.post("/joinNetwork")
+def join():
+    '''Send request to a node in the network'''
+    url = request.get_json().get('url')
+    result = join_network(url)
+    if (result):
+        return {'success': True}
+    return Response("{'success': False}", status=400)
+
+if __name__ == "dotcoin":
+    port = os.environ.get("PORT", default=5000)
+    print("This node is running on port: " + str(port), flush=True)

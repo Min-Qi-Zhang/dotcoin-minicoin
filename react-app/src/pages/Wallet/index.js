@@ -17,8 +17,10 @@ class Wallet extends Component {
   get_address = () => {
     fetch('/address', {method: "GET"}
     ).then((res) => res.json()).then((data) => {
-      this.setState({ address: data.address });
-      localStorage.setItem('address', data.address)
+      if (data.address !== '') {
+        this.setState({ address: data.address });
+        localStorage.setItem('address', data.address)
+      }
     });
   };
 

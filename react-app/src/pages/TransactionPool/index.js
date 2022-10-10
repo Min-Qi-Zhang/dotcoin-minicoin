@@ -28,6 +28,7 @@ class TransactionPool extends Component {
             <TransactionCard tx={tx} />
           );
         })}
+        {this.state.transactions.length === 0 && <p>No transaction in transaction pool</p>}
       </div>
     )
   }

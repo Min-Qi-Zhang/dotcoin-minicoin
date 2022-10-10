@@ -5,9 +5,11 @@ from os.path import exists
 from typing import List, Tuple
 import pickle
 
+from p2p import get_my_port
 from transaction import UTXO, TxIn, TxOut, Transaction, find_in_UTXOs, get_transaction_id, sign_tx_in
 
-private_key_location = './private_key'
+port = get_my_port()
+private_key_location = './private_key_' + str(port)
 
 def init_wallet() -> None:
     '''
@@ -30,6 +32,8 @@ def get_private_from_wallet() -> SigningKey:
     return private_key
 
 def get_public_from_wallet() -> str:
+    if (not exists(private_key_location)):
+        return ''
     private_key = get_private_from_wallet()
     # public_key = ECC.EccKey.public_key(private_key).export_key(format='raw')
     public_key = private_key.verify_key.encode(encoder=RawEncoder)

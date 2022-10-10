@@ -17,7 +17,6 @@ class SendCoins extends Component {
         "Content-Type": "application/json",
       }
     }).then((res) => res.json()).then((data) => {
-      // TODO: update mempool
       event.preventDefault();
       event.target.reset();
     });

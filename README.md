@@ -27,3 +27,20 @@ Build React app
 ```
 npm run build
 ```
+
+Create Bridge
+```
+docker network create -d bridge my-bridge-network
+```
+
+Run multiple nodes
+```
+docker run --rm --network=my-bridge-network -p {{ PORT_NUM }}:5000 -e PORT={{ PORT_NUM }} -v $(pwd)/flask-server:/shared dotcoin flask --app dotcoin.py --debug run --host=0.0.0.0
+```
+Replace `PORT_NUM` with port number that you want to run the node on. For example, to run on port `5001`: 
+```
+docker run --rm --network=my-bridge-network -p 5001:5000 -e PORT=5001 -v $(pwd)/flask-server:/shared dotcoin flask --app dotcoin.py --debug run --host=0.0.0.0
+```
+
+Get ipv4 of containers
+```docker network inspect my-bridge-network```
