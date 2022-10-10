@@ -7,7 +7,7 @@ from typing import List, Union
 from p2p import broadcast_latest, broadcast_transaction_pool
 from transaction import Transaction, TxIn, TxOut, create_coinbase_tx, process_transactions, UTXO
 from transaction_pool import add_to_transaction_pool, get_transaction_pool, update_transaction_pool
-from wallet import create_transaction, get_balance, get_public_from_wallet, get_utxos_by_address
+from wallet import create_transaction, get_balance, get_public_from_wallet, get_utxos_by_address, init_wallet
 
 genesis_block = None
 blockchain = []
@@ -88,6 +88,10 @@ def get_transaction_by_id(id: str) -> Union[Transaction, None]:
 
 def get_info_by_address(address: str) -> List[UTXO]:
     return get_utxos_by_address(address, get_UTXOs())
+
+def generate_key_pair() -> str:
+    init_wallet()
+    return get_public_from_wallet()
 
 def calculate_hash(index: int, prev_hash: str, timestamp: int, data: List[Transaction], difficulty: int, nonce: int) -> str:
     '''

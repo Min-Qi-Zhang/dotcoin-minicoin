@@ -1,0 +1,8 @@
+.flex_row {
+  flex-direction: row;
+  display: flex;
+}
+
+.transaction_card {
+  margin: 10px 0px;
+}

@@ -221,6 +221,8 @@ def is_valid_tx_out_values(transaction: Transaction, a_unspent_tx_outs: List[UTX
 ##### End - Helper functions for is_valid_transaction() #####
 
 def is_valid_transaction(transaction: Transaction, a_unspent_tx_outs: List[UTXO]) -> bool:
+    if (not transaction): return False
+    
     for tx_in in transaction.tx_ins:
         if (not is_valid_tx_ins(tx_in, transaction, a_unspent_tx_outs)):
             return False

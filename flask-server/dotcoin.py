@@ -1,8 +1,9 @@
 from flask import Flask, request, Response, render_template
 import json
 
-from blockchain import generate_next_block, get_UTXOs, get_account_balance, get_block_info, get_blockchain, get_info_by_address, get_my_UTXOs, get_transaction_by_id, send_tx
+from blockchain import generate_next_block, get_UTXOs, get_account_balance, get_block_info, get_blockchain, get_info_by_address, get_my_UTXOs, get_transaction_by_id, send_tx, generate_key_pair
 from wallet import get_public_from_wallet
+from transaction_pool import get_transaction_pool
 
 app = Flask(__name__)
 app.debug = True
@@ -25,6 +26,10 @@ def get_transaction(id):
     tx = get_transaction_by_id(id)
     return tx.toJson() if tx else Response("{'message': 'Transaction does not exist'}", status=400)
 
+@app.get("/transactionPool")
+def get_tx_pool():
+    return json.dumps([tx.toJson() for tx in get_transaction_pool()])
+
 @app.get("/unspentTransactionOutputs")
 def unspent_transaction_outputs():
     return json.dumps([utxo.toJson() for utxo in get_UTXOs()])
@@ -35,7 +40,7 @@ def my_unspent_transaction_outputs():
 
 @app.get("/address")
 def get_address():
-    return Response(str({'address': get_public_from_wallet()}))
+    return {'address': get_public_from_wallet()}
 
 @app.get("/address/<string:address>")
 def get_address_info(address):
@@ -50,7 +55,7 @@ def mine_block():
 
 @app.get("/balance")
 def balance():
-    return Response(str({'balance': get_account_balance()}))
+    return {'balance': get_account_balance()}
 
 # @app.post("/mineTransaction")
 # def mine_transaction():
@@ -64,11 +69,18 @@ def balance():
 @app.post("/sendTransaction")
 def send_transaction():
     receiver_address = request.get_json().get('address')
-    amount = request.get_json().get('amount')
+    try:
+      amount = float(request.get_json().get('amount'))
+    except ValueError:
+      return Response("{'message': 'Invalid amount'}", status=400)
     tx = send_tx(receiver_address, amount)
     if (tx):
         return tx.toJson()
     return Response("{'message': 'Failed to send transaction'}", status=400)
+
+@app.get("/getKeyPair")
+def get_key_pair():
+    return {'address': generate_key_pair()}
 
 # p2p: when a peer wants join, add it to the list, then send it the blockchain
 @app.get("/peers")
