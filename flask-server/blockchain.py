@@ -2,9 +2,9 @@ import json
 import hashlib
 import time
 from datetime import datetime
-from typing import Dict, List, Union
-from unittest import result
+from typing import List, Union
 import requests
+import time
 
 from p2p import broadcast_latest_block, broadcast_transaction, get_peers_list
 from transaction import Transaction, TxIn, TxOut, create_coinbase_tx, process_transactions, UTXO
@@ -13,6 +13,7 @@ from wallet import create_transaction, get_balance, get_public_from_wallet, get_
 
 genesis_block = None
 blockchain = []
+blockchain_pulled = False
 
 # in seconds
 BLOCK_GENERATION_INTERVAL = 10
@@ -337,11 +338,12 @@ def get_blocks_from_first_peer() -> None:
 
         latest_block_held = get_latest_block()
         latest_block_received = blocks[-1]
-        if (latest_block_received.index > latest_block_held.index):
-            if (latest_block_held.hash == latest_block_received.prev_hash):
-                add_block_to_chain(latest_block_received)
-            else:
-                replace_chain(blocks)
+        if (latest_block_held.hash == latest_block_received.prev_hash):
+            add_block_to_chain(latest_block_received)
+        else:
+            replace_chain(blocks)
+        global blockchain_pulled
+        blockchain_pulled = True
         return True
     except Exception:
         return False
@@ -371,3 +373,10 @@ def receive_block(data: str) -> None:
         broadcast_latest_block(get_latest_block())
 
     print("Failed to add to blockchain, do not broadcast", flush=True)
+
+def threaded_task():
+    while(True):
+        if (len(get_peers_list()) > 0 and blockchain_pulled):
+            generate_next_block()
+            print("A block generated!", flush=True)
+        time.sleep(10)

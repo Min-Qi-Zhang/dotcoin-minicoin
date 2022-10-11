@@ -1,8 +1,9 @@
 from flask import Flask, request, Response, render_template
 import json
 import os
+from threading import Thread
 
-from blockchain import generate_next_block, get_UTXOs, get_account_balance, get_block_info, get_blockchain, get_info_by_address, get_my_UTXOs, get_transaction_by_id, send_tx, generate_key_pair, get_blocks_from_first_peer, receive_tx, receive_block
+from blockchain import generate_next_block, get_UTXOs, get_account_balance, get_block_info, get_blockchain, get_info_by_address, get_my_UTXOs, get_transaction_by_id, send_tx, generate_key_pair, get_blocks_from_first_peer, receive_tx, receive_block, threaded_task
 from wallet import get_public_from_wallet
 from transaction_pool import get_transaction_pool
 from p2p import add_peer_to_list, join_network, get_peers_list
@@ -124,3 +125,8 @@ def receive_message_from_peer():
 if __name__ == "dotcoin":
     port = os.environ.get("PORT", default=5000)
     print("This node is running on port: " + str(port), flush=True)
+
+    # https://smirnov-am.github.io/background-jobs-with-flask/
+    thread = Thread(target=threaded_task)
+    thread.daemon = True
+    thread.start()
