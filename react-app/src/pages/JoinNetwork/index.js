@@ -3,10 +3,14 @@ import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
 
 class JoinNetwork extends Component {
-  state = {
-    urls: [],
-    url: ''
+  constructor(props) {
+    super(props);
+    this.state = {
+      urls: [],
+      url: ''
+    };
   }
+  
 
   get_peers = () => {
     fetch('/peers', {method: "GET"})
@@ -29,11 +33,15 @@ class JoinNetwork extends Component {
     });
   }
 
+  update_block_status = (status) => {
+    this.props.update_block_status(status);
+  };
+
   get_blockchain = () => {
-    fetch('/blocks', {method: "POST"})
+    fetch('/blocks', {method: "PATCH"})
       .then((res) => res.json())
       .then((data) => {
-        console.log(data);
+        this.update_block_status(data.success);
       });
   }
 

@@ -47,7 +47,7 @@ class BlockDetail extends Component {
               </tr>
               <tr>
                 <td>Timestamp</td>
-                <td>{new Date(this.state.block.timestamp * 1000).toDateString()}</td>
+                <td>{new Date(this.state.block.timestamp * 1000).toISOString()}</td>
               </tr>
               <tr>
                 <td>Difficulty</td>

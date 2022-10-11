@@ -16,8 +16,14 @@ class TransactionPool extends Component {
   };
 
   componentDidMount = () => {
-    this.get_transaction_pool();
-  }
+    this.interval = setInterval(() => {
+      this.get_transaction_pool();
+    }, 2000);
+  };
+
+  componentWillUnmount = () => {
+    clearInterval(this.interval);
+  };
 
   render() {
     return(

@@ -152,16 +152,6 @@ def generate_next_block() -> Block:
     block_data = [coinbase_tx] + get_transaction_pool()
     return generate_next_raw_block(block_data)
 
-def generate_block_with_transaction(receiver_address: str, amount: float) -> Block:
-    # TODO: Check receiver_address
-
-    if (not (type(amount) is float or type(amount) is int)):
-        return None
-
-    coinbase_tx = create_coinbase_tx(get_public_from_wallet(), len(get_blockchain()))
-    tx = create_transaction(receiver_address, amount, get_UTXOs(), get_transaction_pool())
-    return generate_next_raw_block([coinbase_tx, tx])
-
 def is_valid_timestamp(new_block: Block, prev_block: Block) -> bool:
     ''' Timestamp is valid if:
         cur_time + 60 > new_block.timestamp > prev_block.timestamp - 60
@@ -348,7 +338,7 @@ def get_blocks_from_first_peer() -> None:
     except Exception:
         return False
 
-def receive_tx(data: str) -> None:
+def receive_tx(data: str) -> bool:
     '''
         Received a tx from peer, check -> add -> flood it
     '''
@@ -358,10 +348,12 @@ def receive_tx(data: str) -> None:
     if (add_to_transaction_pool(tx, get_UTXOs())):
         print("Added to pool successfully, broadcasting...", flush=True)
         broadcast_transaction(tx)
+        return True
 
     print("Failed to add to pool, do not broadcast", flush=True)
+    return False
 
-def receive_block(data: str) -> None:
+def receive_block(data: str) -> bool:
     '''
         Received a block from peer, check -> add -> flood it
     '''
@@ -371,8 +363,10 @@ def receive_block(data: str) -> None:
     if (add_block_to_chain(block)):
         print("Added to blockchain successfully, broadcasting...", flush=True)
         broadcast_latest_block(get_latest_block())
+        return True
 
     print("Failed to add to blockchain, do not broadcast", flush=True)
+    return False
 
 def threaded_task():
     while(True):

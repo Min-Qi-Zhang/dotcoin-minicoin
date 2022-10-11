@@ -15,13 +15,13 @@ port = 5000
 
 @app.route("/")
 def index():
-    return render_template("index.html", flask_token="Hello   world")
+    return render_template("index.html")
 
 @app.get("/blocks")
 def get_blocks():
     return json.dumps([block.toJson() for block in get_blockchain()])
 
-@app.post("/blocks")
+@app.patch("/blocks")
 def get_blocks_from_peer():
     result = get_blocks_from_first_peer()
     return {'success': result}
@@ -67,15 +67,6 @@ def mine_block():
 def balance():
     return {'balance': get_account_balance()}
 
-# @app.post("/mineTransaction")
-# def mine_transaction():
-#     receiver_address = request.get_json().get('address')
-#     amount = request.get_json().get('amount')
-#     new_block = generate_block_with_transaction(receiver_address, amount)
-#     if (new_block):
-#         return new_block.toJson()
-#     return Response("{'message': 'Failed to mine transaction'}", status=400)
-
 @app.post("/sendTransaction")
 def send_transaction():
     receiver_address = request.get_json().get('address')
@@ -116,11 +107,12 @@ def join():
 def receive_message_from_peer():
     type = request.get_json().get('type')
     data = request.get_json().get('data')
+    result = False
     if (type == 'Transaction'):
-        receive_tx(data)
+        result = receive_tx(data)
     elif (type == 'Block'):
-        receive_block(data)
-    return {'success': True}
+        result = receive_block(data)
+    return {'success': result}
 
 if __name__ == "dotcoin":
     port = os.environ.get("PORT", default=5000)
