@@ -54,13 +54,6 @@ API
 $ curl http://localhost:5000/blocks
 ```
 
-### Update blockchain
-- description: update blockchain by getting it first peer in peer list, this is used after connected to the network
-- request: `PATCH /blocks`
-```
-$ curl -X PATCH http://localhost:5000/blocks
-```
-
 ### Find block by hash
 - request: `GET /block/:hash`
 ```
@@ -142,7 +135,7 @@ $ curl http://localhost:5000/peers
 ```
 
 ### Join network
-- description: join the network by sending the request to the url you want to connect to
+- description: join the network by sending the request to the url you want to connect to, will receive a blockchain as response
 - request: `POST /joinNetwork`
   - body: object
     - url: (string) url of node you want to connect
