@@ -3,10 +3,10 @@ import json
 import os
 from threading import Thread
 
-from blockchain import generate_next_block, get_UTXOs, get_account_balance, get_block_info, get_blockchain, get_info_by_address, get_my_UTXOs, get_transaction_by_id, send_tx, generate_key_pair, get_blocks_from_first_peer, receive_tx, receive_block, threaded_task
+from blockchain import generate_next_block, get_UTXOs, get_account_balance, get_block_info, get_blockchain, get_info_by_address, get_my_UTXOs, get_transaction_by_id, send_tx, generate_key_pair, receive_tx, receive_block, threaded_task, join_network, add_peer_to_list, get_blocks_from_first_peer
 from wallet import get_public_from_wallet
 from transaction_pool import get_transaction_pool
-from p2p import add_peer_to_list, join_network, get_peers_list
+from p2p import get_peers_list
 
 app = Flask(__name__)
 app.debug = True
@@ -90,9 +90,10 @@ def get_peers():
 
 @app.post("/addPeer")
 def add_peer():
-    '''Receive request from new node to join the network'''
-    my_url = request.get_json().get('url')
-    return {'url': add_peer_to_list(my_url)}
+    '''Receive request from new node to join the network, send back blockchain'''
+    blocks = add_peer_to_list(request.get_json().get('url'))
+    blocks_str = json.dumps([block.toJson() for block in blocks])
+    return blocks_str
 
 @app.post("/joinNetwork")
 def join():

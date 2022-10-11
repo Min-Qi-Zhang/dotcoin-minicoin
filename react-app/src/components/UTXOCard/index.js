@@ -24,7 +24,7 @@ class UTXOCard extends Component {
     });
   };
 
-  componentDidMount = () => {
+  update = () => {
     if (this.props.tx_out) {
       let tx_out = this.props.tx_out;
       this.setState({ address: tx_out.address, amount: tx_out.amount, is_coinbase: false });
@@ -35,6 +35,18 @@ class UTXOCard extends Component {
       } else {
         this.get_tx(tx_in.tx_out_id, tx_in.tx_out_index);
       }
+    }
+  }
+
+  componentDidMount = () => {
+    this.update();
+  };
+
+  componentDidUpdate = (prevProps) => {
+    if (this.props.tx_out && prevProps.tx_out && this.props.tx_out !== prevProps.tx_out) {
+      this.update();
+    } else if (this.props.tx_in && prevProps.tx_in && this.props.tx_in !== prevProps.tx_in) {
+      this.update();
     }
   };
 

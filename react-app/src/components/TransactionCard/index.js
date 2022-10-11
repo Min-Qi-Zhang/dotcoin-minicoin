@@ -18,6 +18,12 @@ class TransactionCard extends Component {
     this.setState({ id: this.props.tx.id, tx_ins: this.props.tx.tx_ins, tx_outs: this.props.tx.tx_outs });
   };
 
+  componentDidUpdate = (prevProps) => {
+    if (prevProps.tx.id !== this.props.tx.id) {
+      this.setState({ id: this.props.tx.id, tx_ins: this.props.tx.tx_ins, tx_outs: this.props.tx.tx_outs });
+    }
+  }
+
   render() {
     return(
       <Card className="transaction_card">

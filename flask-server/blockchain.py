@@ -6,14 +6,13 @@ from typing import List, Union
 import requests
 import time
 
-from p2p import broadcast_latest_block, broadcast_transaction, get_peers_list
+from p2p import broadcast_latest_block, broadcast_transaction, get_peers_list, add_to_peer_list, get_my_url
 from transaction import Transaction, TxIn, TxOut, create_coinbase_tx, process_transactions, UTXO
 from transaction_pool import add_to_transaction_pool, get_transaction_pool, update_transaction_pool
 from wallet import create_transaction, get_balance, get_public_from_wallet, get_utxos_by_address, init_wallet
 
 genesis_block = None
 blockchain = []
-blockchain_pulled = False
 
 # in seconds
 BLOCK_GENERATION_INTERVAL = 10
@@ -218,7 +217,7 @@ def hash_match_difficulty(hash: str, difficulty: int) -> bool:
     '''
         Check whether hash starts with difficulty number of zeros
     '''
-    binary_hash = bin(int(hash, 16)).zfill(8)
+    binary_hash = bin(int(hash, 16))[2:].zfill(256)
     return "0" * difficulty == binary_hash[:difficulty]
 
 def replace_chain(new_blocks: List[Block]) -> None:
@@ -332,8 +331,29 @@ def get_blocks_from_first_peer() -> None:
             add_block_to_chain(latest_block_received)
         else:
             replace_chain(blocks)
-        global blockchain_pulled
-        blockchain_pulled = True
+        return True
+    except Exception:
+        return False
+
+def add_peer_to_list(url: str) -> List[Block]:
+    add_to_peer_list(url)
+    return get_blockchain()
+    
+def join_network(url: str) -> bool:
+    data = json.dumps({'url': get_my_url()})
+    request_url = url + '/addPeer'
+    
+    try:
+        result = requests.post(request_url, data=data, headers={"Content-Type": "application/json"}).json()
+        blocks = [convert_dict_to_block(block) for block in result]
+        add_to_peer_list(url)
+
+        latest_block_held = get_latest_block()
+        latest_block_received = blocks[-1]
+        if (latest_block_held.hash == latest_block_received.prev_hash):
+            add_block_to_chain(latest_block_received)
+        else:
+            replace_chain(blocks)
         return True
     except Exception:
         return False
@@ -370,7 +390,7 @@ def receive_block(data: str) -> bool:
 
 def threaded_task():
     while(True):
-        if (len(get_peers_list()) > 0 and blockchain_pulled):
+        if (len(get_peers_list()) > 0 and get_public_from_wallet() != ''):
             generate_next_block()
             print("A block generated!", flush=True)
         time.sleep(10)

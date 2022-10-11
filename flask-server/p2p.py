@@ -27,25 +27,9 @@ def broadcast_transaction(message) -> None:
         body = {"data": message.toJson(), "type": "Transaction"}
         requests.post(request_url, data=json.dumps(body), headers={"Content-Type": "application/json"})
 
-def add_peer_to_list(url: str) -> str:
+def add_to_peer_list(url: str) -> None:
     if (url not in peer_urls):
         peer_urls.append(url)
-    return get_my_url()
-    
-def join_network(url: str) -> bool:
-    data = json.dumps({'url': get_my_url()})
-    request_url = url + '/addPeer'
-    
-    try:
-        result = requests.post(request_url, data=data, headers={"Content-Type": "application/json"})
-        status = result.status_code
-        if (status == 200):
-            add_peer_to_list(url)
-            return True
-        else:
-            return False
-    except Exception:
-        return False
 
 def get_peers_list() -> List[str]:
     return peer_urls
