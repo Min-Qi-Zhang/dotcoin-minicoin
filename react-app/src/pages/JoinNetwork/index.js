@@ -11,7 +11,6 @@ class JoinNetwork extends Component {
   get_peers = () => {
     fetch('/peers', {method: "GET"})
       .then((res) => res.json()).then((data) => {
-        console.log("urls: ", data);
         this.setState({urls: data});
       });
   };
@@ -30,6 +29,14 @@ class JoinNetwork extends Component {
     });
   }
 
+  get_blockchain = () => {
+    fetch('/blocks', {method: "POST"})
+      .then((res) => res.json())
+      .then((data) => {
+        console.log(data);
+      });
+  }
+
   componentDidMount = () => {
     this.get_peers();
   }
@@ -46,6 +53,9 @@ class JoinNetwork extends Component {
           <Button type="submit">
             JOIN
           </Button>
+          {this.state.urls.length > 0 && (
+            <Button onClick={this.get_blockchain}>Get Blockchain</Button>
+          )}
         </Form>
 
         <h4>Connected Peers</h4>
@@ -54,6 +64,7 @@ class JoinNetwork extends Component {
             <p>{url}</p>
           )
         })}
+        {this.state.urls.length === 0 && <p>You're not conneted to any node.</p>}
       </div>
     )
   }

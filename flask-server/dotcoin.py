@@ -2,7 +2,7 @@ from flask import Flask, request, Response, render_template
 import json
 import os
 
-from blockchain import generate_next_block, get_UTXOs, get_account_balance, get_block_info, get_blockchain, get_info_by_address, get_my_UTXOs, get_transaction_by_id, send_tx, generate_key_pair
+from blockchain import generate_next_block, get_UTXOs, get_account_balance, get_block_info, get_blockchain, get_info_by_address, get_my_UTXOs, get_transaction_by_id, send_tx, generate_key_pair, get_blocks_from_first_peer, receive_tx, receive_block
 from wallet import get_public_from_wallet
 from transaction_pool import get_transaction_pool
 from p2p import add_peer_to_list, join_network, get_peers_list
@@ -19,6 +19,11 @@ def index():
 @app.get("/blocks")
 def get_blocks():
     return json.dumps([block.toJson() for block in get_blockchain()])
+
+@app.post("/blocks")
+def get_blocks_from_peer():
+    result = get_blocks_from_first_peer()
+    return {'success': result}
 
 @app.get("/block/<string:hash>")
 def get_block(hash):
@@ -105,6 +110,16 @@ def join():
     if (result):
         return {'success': True}
     return Response("{'success': False}", status=400)
+
+@app.post("/message")
+def receive_message_from_peer():
+    type = request.get_json().get('type')
+    data = request.get_json().get('data')
+    if (type == 'Transaction'):
+        receive_tx(data)
+    elif (type == 'Block'):
+        receive_block(data)
+    return {'success': True}
 
 if __name__ == "dotcoin":
     port = os.environ.get("PORT", default=5000)

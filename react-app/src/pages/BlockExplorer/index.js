@@ -19,7 +19,6 @@ class BlockExplorer extends Component {
   };
 
   update_block_detail = (hash) => {
-    console.log(hash);
     this.setState({ block_detail_hash: hash });
   }
 

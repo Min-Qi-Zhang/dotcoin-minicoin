@@ -2,9 +2,11 @@ import json
 import hashlib
 import time
 from datetime import datetime
-from typing import List, Union
+from typing import Dict, List, Union
+from unittest import result
+import requests
 
-from p2p import broadcast_latest, broadcast_transaction_pool
+from p2p import broadcast_latest_block, broadcast_transaction, get_peers_list
 from transaction import Transaction, TxIn, TxOut, create_coinbase_tx, process_transactions, UTXO
 from transaction_pool import add_to_transaction_pool, get_transaction_pool, update_transaction_pool
 from wallet import create_transaction, get_balance, get_public_from_wallet, get_utxos_by_address, init_wallet
@@ -97,7 +99,8 @@ def calculate_hash(index: int, prev_hash: str, timestamp: int, data: List[Transa
     '''
         Compute hash over all data of block
     '''
-    string = str(index) + str(prev_hash) + str(timestamp) + str(data) + str(difficulty) + str(nonce)
+    block_data_to_str = json.dumps([tx.toJson() for tx in data])
+    string = str(index) + str(prev_hash) + str(timestamp) + block_data_to_str + str(difficulty) + str(nonce)
     return hashlib.sha256(string.encode('utf-8')).hexdigest()
 
 def calculate_cumulative_difficulty(blocks: List[Block]) -> int:
@@ -139,7 +142,7 @@ def generate_next_raw_block(block_data: List[Transaction]) -> Block:
     next_difficulty = get_difficulty()
     next_block = find_block(next_index, prev_block.hash, next_timestamp, block_data, next_difficulty)
     if (add_block_to_chain(next_block)):
-        broadcast_latest();
+        broadcast_latest_block(get_latest_block());
         return next_block
     return None
 
@@ -207,7 +210,7 @@ def is_valid_chain(blockchain_to_check: List[Block]) -> Union[List[UTXO], None]:
         First, check first block is genesis block, 
         then validation the rest of blocks.
     '''
-    if (blockchain_to_check[0] != get_genesis_block()):
+    if (blockchain_to_check[0].toJson() != get_genesis_block().toJson()):
         return None
 
     a_unspent_tx_outs = []
@@ -232,13 +235,16 @@ def replace_chain(new_blocks: List[Block]) -> None:
         Replace the chain with highest cummulative difficulty
     '''
     a_unspent_tx_outs = is_valid_chain(new_blocks)
-    if (a_unspent_tx_outs != None and \
-        calculate_cumulative_difficulty(new_blocks) > calculate_cumulative_difficulty(blockchain)):
+    cd1 = calculate_cumulative_difficulty(new_blocks)
+    cd2 = calculate_cumulative_difficulty(get_blockchain())
+    if (a_unspent_tx_outs != None and cd1 > cd2):
         print("Valid blockchain received.", flush=True)
+        global blockchain
         blockchain = new_blocks
         set_UTXOs(a_unspent_tx_outs)
         update_transaction_pool(get_UTXOs())
-        broadcast_latest()
+    elif (a_unspent_tx_outs != None and cd1 == cd2):
+        print("Valid blockchain received, same as current one. No changes made.", flush=True)
     else:
         print("Invalid blockchain received.", flush=True)
 
@@ -270,6 +276,98 @@ def add_block_to_chain(block: Block) -> bool:
 
 def send_tx(address: str, amount: float) -> Transaction:
     tx = create_transaction(address, amount, get_UTXOs(), get_transaction_pool())
-    add_to_transaction_pool(tx, get_UTXOs())
-    broadcast_transaction_pool()
+    if (tx):
+        add_to_transaction_pool(tx, get_UTXOs())
+        broadcast_transaction(tx)
     return tx
+
+def convert_dict_to_block(data: Union[str, dict]) -> Union[Block, None]:
+    try:
+        data_dict = data if type(data) is dict else json.loads(data)
+        block_data = [convert_dict_to_tx(tx) for tx in data_dict.get('data')]
+        if (None in block_data):
+            print("None in block_data", flush=True)
+            return None
+        return Block(data_dict.get('index'), data_dict.get('hash'), data_dict.get('prev_hash'), data_dict.get('timestamp'), block_data, data_dict.get('difficulty'), data_dict.get('nonce'))
+    except Exception:
+        return None
+
+def convert_dict_to_tx(data: Union[str, dict]) -> Union[Transaction, None]:
+    try:
+        data_dict = data if type(data) is dict else json.loads(data)
+        tx = Transaction()
+        tx.id = data_dict.get('id')
+        tx.tx_ins = [convert_dict_to_tx_in(tx_in) for tx_in in data_dict.get('tx_ins')]
+        tx.tx_outs = [convert_dict_to_tx_out(tx_out) for tx_out in data_dict.get('tx_outs')]
+        if (None in tx.tx_ins or None in tx.tx_outs):
+            return None
+        return tx
+    except Exception:
+        return None
+
+def convert_dict_to_tx_out(data: Union[str, dict]) -> Union[TxOut, None]:
+    try:
+        data_dict = data if type(data) is dict else json.loads(data)
+        return TxOut(data_dict.get('address'), data_dict.get('amount'))
+    except Exception:
+        return None
+
+def convert_dict_to_tx_in(data: Union[str, dict]) -> Union[TxIn, None]:
+    tx_in = TxIn()
+    try:
+        data_dict = data if type(data) is dict else json.loads(data)
+        tx_in.tx_out_id = data_dict.get('tx_out_id')
+        tx_in.tx_out_index = data_dict.get('tx_out_index')
+        tx_in.signature = data_dict.get('signature')
+        return tx_in
+    except Exception:
+        return None
+
+def get_blocks_from_first_peer() -> None:
+    '''
+        Make a request to the first peer to get their blockchain
+    '''
+    if (len(get_peers_list()) == 0):
+        return False
+
+    request_url = get_peers_list()[0] + '/blocks'
+    try:
+        result = requests.get(request_url).json()
+        blocks = [convert_dict_to_block(block) for block in result]
+
+        latest_block_held = get_latest_block()
+        latest_block_received = blocks[-1]
+        if (latest_block_received.index > latest_block_held.index):
+            if (latest_block_held.hash == latest_block_received.prev_hash):
+                add_block_to_chain(latest_block_received)
+            else:
+                replace_chain(blocks)
+        return True
+    except Exception:
+        return False
+
+def receive_tx(data: str) -> None:
+    '''
+        Received a tx from peer, check -> add -> flood it
+    '''
+    print("Received a transaction...", flush=True)
+    tx = convert_dict_to_tx(data)
+
+    if (add_to_transaction_pool(tx, get_UTXOs())):
+        print("Added to pool successfully, broadcasting...", flush=True)
+        broadcast_transaction(tx)
+
+    print("Failed to add to pool, do not broadcast", flush=True)
+
+def receive_block(data: str) -> None:
+    '''
+        Received a block from peer, check -> add -> flood it
+    '''
+    print("Received a block...", flush=True)
+    block = convert_dict_to_block(data)
+
+    if (add_block_to_chain(block)):
+        print("Added to blockchain successfully, broadcasting...", flush=True)
+        broadcast_latest_block(get_latest_block())
+
+    print("Failed to add to blockchain, do not broadcast", flush=True)

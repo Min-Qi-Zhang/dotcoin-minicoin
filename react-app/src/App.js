@@ -11,11 +11,11 @@ class App extends Component {
   render() {
     return (
       <div className="App">
-        <JoinNetwork />
-        <Wallet />
-        {localStorage.getItem('address') && <SendCoins />}
-        <TransactionPool />
-        <BlockExplorer />
+        <JoinNetwork /> <hr />
+        <Wallet /> <hr />
+        {localStorage.getItem('address') && <><SendCoins /><hr /></>}
+        <TransactionPool /> <hr />
+        <BlockExplorer /> <hr />
       </div>
     );
   }
